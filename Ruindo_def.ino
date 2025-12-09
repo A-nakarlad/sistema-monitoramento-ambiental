@@ -3,9 +3,6 @@
 #define pinSensorDigital 7
 #define pinLED LED_BUILTIN
 
-//============CONSTS=============
-int contadorRuido = 0; 
-
 //============STRUCTS=============
 struct LeituraSensorA {
   int vpp;
@@ -96,7 +93,7 @@ void printCSV(int vpp, float dbAprox, const String& status){
   Serial.println(status);
 }
 
-bool alertaCritico(){
+int alertaCritico(){
   //PEGA OS VALORES
   LeituraSensorA dadosA = lerSensorAnalogico();
   LeituraSensorD  dadosD = writeSensorDigital(dadosA.db);
@@ -117,7 +114,8 @@ void loop() {
   LeituraSensorD  dadosD = writeSensorDigital(dadosA.db);
   //CONTROLA LED
   ledControl(dadosD.dVal);
-
+  //Verifica Alerta
+  contadorRuido = alertaCritico();
   if (contadorRuido >= 5){
     String status =  "ALERTA";
   }
