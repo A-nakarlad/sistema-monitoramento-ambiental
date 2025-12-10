@@ -5,12 +5,13 @@
 #define DHTPIN 19
 #define DHTTYPE DHT11 
 
-#define readingInterval 10000
-#define alertTime 120000
-#define maximumAlertTime 180000
-#define buzzerInterval 30000
-#define silenceDuration 600000
+#define readingInterval 10000 //intervalo de leituras dos sensores
+#define alertTime 50000 //tempo máximo para alerta amarelo
+#define maximumAlertTime 60000 //tempo para alerta vermelho
+#define buzzerInterval 30000 //intervalo do toque do buzzer
+#define silenceDuration 600000 //período sem toque do buzzer
 
+//faixas dos sensores DHT
 #define tempMin 22.0
 #define tempMax 26.0
 #define humidityMin 40.0
@@ -19,29 +20,32 @@
 BH1750 lightMeter;
 DHT dht(DHTPIN, DHTTYPE);
 
-//leds
+//pinout 
 const int redLedPin = 15;
 const int greenLedPin = 4;
 const int yellowLedPin = 2;
-
 const int buzzerPin = 18;
 const int buttonPin = 23;
 
-//timers
-unsigned long lastTime = 0;
-int counter = 0;
+const unsigned long twelveHours = 12 * 60 * 60 * 1000UL;
+const unsigned long twentyFourHours = 24UL * 60 * 60 * 1000UL;  
 
-//noite = false, dia = true
-bool stateDay = false; 
+//contadores
+unsigned long lastTime = 0; //última leitura dos sensores
+int counter = 0; //contador de amostras em 1min
+unsigned long counterStateDay = 0; //conta 12hrs
+
+//controle do estado do dia
+bool stateDay = false; //noite = false, dia = true
 
 //BH variables
-unsigned long startOutsideRangeBH = 0;
+unsigned long startOutsideRangeBH = 0; //quando a luz saiu da faixa
 float sumBH = 0.0;
 float averageBH = 0.0;
-bool onAlertBH = false;
-bool onMaximumAlertBH = false;
+bool onAlertBH = false; //alerta amarelo
+bool onMaximumAlertBH = false; //alerta vermelho
 
-//DHT variables
+//DHT variables - humidity
 float sumHum = 0.0;
 float averageHum = 0.0;
 int consecutiveCounterHum = 0;
@@ -49,6 +53,7 @@ bool onAlertHum = false;
 bool onMaximumAlertHum = false;
 unsigned long startOutsideRangeHum = 0;
 
+//DHT variables - temperature
 float sumTemp = 0.0;
 float averageTemp = 0.0;
 int consecutiveCounterTemp = 0;
@@ -58,25 +63,42 @@ unsigned long startOutsideRangeTemp = 0;
 
 bool redAlert = true;
 
-unsigned long lastBuzzerTime = 0;     
-unsigned long silenceStartTime = 0;    
-bool buzzerSilenced = false;           
-bool buzzerOn = false;                
-unsigned long buzzerOnStartTime = 0; 
-const int buzzerBeepDuration = 200;  
+//controles do buzzer
+unsigned long lastBuzzerTime = 0; //ultimo toque 
+unsigned long silenceStartTime = 0; //quando foi silenciado
+bool buzzerSilenced = false; //se está silenciado          
+bool buzzerOn = false; //se está tocando               
+unsigned long buzzerOnStartTime = 0; //quando começou a tocar
+const int buzzerBeepDuration = 200; //duração do toque
 
-int buttonState = HIGH;
-int lastButtonState = HIGH;
-unsigned long lastDebounceTime = 0;
+//controles do botão
+int buttonState = HIGH; //estado atual
+int lastButtonState = HIGH; //estado anterioi
+unsigned long lastDebounceTime = 0; //utima vez que mudou
 const unsigned long debounceDelay = 50;
 
+//métricas em 24hrs
+struct SensorStats {
+  float minValue;
+  float maxValue;
+  float avgValue;
+  float sumValue;
+  int readingCount;
+};
 
+SensorStats luxStats24h = {9999.0, -9999.0, 0.0, 0.0, 0}; 
+SensorStats tempStats24h = {9999.0, -9999.0, 0.0, 0.0, 0};
+SensorStats humStats24h = {9999.0, -9999.0, 0.0, 0.0, 0};
+
+/*verifica a luminosidade para determinar se é dia ou noite
+espera ocorrer mudança no estado do dia para começar as leituras*/
 void defineInitialStateDay () {
 
   float lux = 0.0;
   unsigned long init_lastTime = millis();
   int init_counter = 0;
 
+  //6 amostras para determinar o estado inicial
   while (init_counter < 6) {
     if (millis() - init_lastTime  >= readingInterval) {
       init_lastTime += readingInterval;
@@ -85,8 +107,7 @@ void defineInitialStateDay () {
       sumBH += lux;
       init_counter++;
     }
-  }
-
+  }  
   averageBH = sumBH / 6.0;
   stateDay = (averageBH >= 1.0);
 
@@ -99,6 +120,7 @@ void defineInitialStateDay () {
   init_lastTime = millis();
   init_counter = 0;
   
+  //aguarda transição de estado
   while(true){
     if (millis() - init_lastTime >= readingInterval) {
       init_lastTime += readingInterval; 
@@ -130,6 +152,7 @@ void defineInitialStateDay () {
       }
     }    
   }
+  counterStateDay = millis();
 }
 
 void setup() {
@@ -150,110 +173,152 @@ void setup() {
   lastTime = millis();
   sumBH = 0.0;
 
-  digitalWrite(buzzerPin, LOW);
+  noTone(buzzerPin);
 }
 
+//verificar se a humidade está dentro da faixa ideal
 void checkHumidity (float humidity) { 
   bool withinRange = (humidity >= humidityMin && humidity <= humidityMax);
 
+  //se ainda não está em alerta
   if (!onAlertHum) {
-    if (!withinRange){
+    if (!withinRange){ //está fora de faixa
       consecutiveCounterHum++;
 
+      //primeira vez fora de faixa
       if (startOutsideRangeHum == 0) {
         startOutsideRangeHum = millis();
-      } else if (millis() - startOutsideRangeHum >= maximumAlertTime ) {
+      } 
+      //alerta vermelho se passar o tempo máximo
+      else if (millis() - startOutsideRangeHum >= maximumAlertTime ) {
         Serial.println("alerta - mais de 3min");
         onMaximumAlertHum = true;
-      } else if (millis() - startOutsideRangeHum >= alertTime ) {
+      } 
+      //alerta amarelo se passar do tempo
+      else if (millis() - startOutsideRangeHum >= alertTime ) {
         Serial.println("alerta - mais de 2min");
         onAlertHum = true;
       } 
 
+      //3 leituras consecutivas fora de faixa
       if (consecutiveCounterHum >= 3) {
         //onAlertHum = true;
         Serial.println("alerta hum");
       }
-    } else {
+    } 
+    //dentro da faixa
+    else { 
       consecutiveCounterHum = 0;
       consecutiveCounterHum = 0;
     }
-  } else {
-    if (withinRange) {
+  } 
+  //se já está em alerta
+  else {
+    //voltou para a faixa
+    if (withinRange) { 
       consecutiveCounterHum++;
 
+        //3 leituras consecutivas dentro da faixa
         if (consecutiveCounterHum >= 3) {
         onAlertHum = false;
         consecutiveCounterHum = 0;
         startOutsideRangeTemp = 0;
         Serial.println("hum ok");
       }
-    } else {
+    } 
+    //continua fora da faixa
+    else {
       consecutiveCounterHum = 0;
     }    
   }
 }
 
+//verificar se a temperatura está dentro da faixa ideal
 void checkTemperature (float temperature) { 
   bool withinRange = (temperature >= tempMin && temperature <= tempMax);
 
-  if (!onAlertTemp) {
+  //ainda não está em alerta
+  if (!onAlertTemp) { //está fora de faixa
     if (!withinRange){
       consecutiveCounterTemp++;
 
+      //primeira vez fora da faixa
       if (startOutsideRangeTemp == 0) {
         startOutsideRangeTemp = millis();
-      } else if (millis() - startOutsideRangeTemp >= maximumAlertTime) {
+      } 
+      //alerta vermelho se passou o tempo máximo
+      else if (millis() - startOutsideRangeTemp >= maximumAlertTime) {
         Serial.println("alerta - mais de 2min");
         onMaximumAlertTemp = true;
-      } else if (millis() - startOutsideRangeTemp >= alertTime ) {
+      } 
+      //alerta amarelo
+      else if (millis() - startOutsideRangeTemp >= alertTime ) {
         Serial.println("alerta - mais de 2min");
         onAlertTemp = true;
       } 
 
+      //3 leituras consecutivas fora da faixa
       if (consecutiveCounterTemp >= 3) {
         //onAlertTemp = true;
         Serial.println("alerta temp");
       }
-    } else {
+    } 
+    //dentro da faixa
+    else {
       consecutiveCounterTemp = 0;
       startOutsideRangeTemp = 0;
     }
-  } else {
+  } 
+  //já está em alerta
+  else {
     if (withinRange) {
       consecutiveCounterTemp++;
 
+        //3 leituras consecutivas dentro da faixa
         if (consecutiveCounterTemp >= 3) {
         onAlertTemp = false;
         consecutiveCounterTemp = 0;
         startOutsideRangeTemp = 0;
         Serial.println("temp ok");
       }
-    } else {
+    } 
+    //continua fora da faixa
+    else {
       consecutiveCounterTemp = 0;
     }    
   }
 }
 
+//verificar se a humidade está dentro da faixa ideal
 void checkBH (float lux) {
+  //se é noite
   if (!stateDay){
     if (lux >= 1 && lux <= 3) {
+      //primeira vez fora da faixa
       if (startOutsideRangeBH == 0) {
         startOutsideRangeBH = millis();
-      } else if (!onAlertBH && (millis() - startOutsideRangeBH >= maximumAlertTime)) {
+      } 
+      //alerta vermelho se passou o tempo máximo
+      else if (onAlertBH && (millis() - startOutsideRangeBH >= maximumAlertTime)) {
         Serial.println("alerta - mais de 2min");
         onMaximumAlertBH = true;
-      } else if (millis() - startOutsideRangeBH >= alertTime ) {
+      } 
+      //alerta amarelo
+      else if (millis() - startOutsideRangeBH >= alertTime ) {
         Serial.println("alerta - mais de 2min");
         onAlertBH = true;
       } 
-    } else {
+    } 
+    //dentro da faixa
+    else {
       if (onAlertBH) {
         onAlertBH = false;
       }
       startOutsideRangeBH = 0;
     }
-  } else {
+  } 
+  //durante o dia
+  else {
     if (onAlertBH) {
       onAlertBH = false;
       startOutsideRangeBH = 0;
@@ -261,7 +326,7 @@ void checkBH (float lux) {
   } 
 }
 
-
+//controle dos leds de alertas
 void activateAlerts () {
   bool yellowAlert = (onAlertBH || (onAlertTemp || onAlertHum));
   bool maximumAlert = (onMaximumAlertBH || (onMaximumAlertTemp || onMaximumAlertHum));
@@ -271,18 +336,23 @@ void activateAlerts () {
   if (onAlertHum) alerts++;
   if (onAlertTemp) alerts++;
 
+  //qualquer alerta máximo ou dois sensores em alerta
   if (alerts >= 2 || maximumAlert) {
     digitalWrite (yellowLedPin, LOW);
     digitalWrite (redLedPin, HIGH);
     digitalWrite (greenLedPin, LOW);
     redAlert = true;
     Serial.println(redAlert);
-  } else if (yellowAlert) {
+  } 
+  //qualquer sensor em alerta
+  else if (yellowAlert) {
     digitalWrite (yellowLedPin, HIGH);
     digitalWrite (redLedPin, LOW);
     digitalWrite (greenLedPin, LOW);
     redAlert = false;
-  } else {
+  } 
+  //estado ok
+  else {
     digitalWrite (yellowLedPin, LOW);
     digitalWrite (redLedPin, LOW);
     digitalWrite (greenLedPin, HIGH);
@@ -290,34 +360,47 @@ void activateAlerts () {
   }
 }
 
+//controle do buzzer durante alertas vermelhos
 void handleBuzzer () {
+  //se não está em alerta vermelho
   if (!redAlert) {
-    digitalWrite(buzzerPin, LOW);
+    //digitalWrite(buzzerPin, LOW);
+    noTone(buzzerPin);
     buzzerSilenced = false;
     return;
-  } else if (buzzerSilenced) {
+  } 
+  //se foi silenciado pelo botão
+  else if (buzzerSilenced) {
+    //verifica se passou o tempo de silencio
     if (millis() - silenceStartTime >= silenceDuration) {
       buzzerSilenced = false;
     } else {
-      digitalWrite(buzzerPin, LOW);
+      //digitalWrite(buzzerPin, LOW);
+      noTone(buzzerPin);
       return;
     }
   }
 
   unsigned long currentTime = millis();
+
+  //verifica se é o momento do toque
   if (currentTime - lastBuzzerTime >= buzzerInterval) {
     lastBuzzerTime = currentTime;
     buzzerOn = true;
     buzzerOnStartTime = currentTime;
-    digitalWrite(buzzerPin, HIGH);
+    //digitalWrite(buzzerPin, HIGH);
+    tone(buzzerPin, 2000, buzzerBeepDuration);
   }
 
+  //verifica se completou o toque
   if (buzzerOn && (currentTime - buzzerOnStartTime >= buzzerBeepDuration)) {
     buzzerOn = false;
-    digitalWrite(buzzerPin, LOW);
+    //digitalWrite(buzzerPin, LOW);
+    noTone(buzzerPin);
   }
 }
 
+//gerencia o botçao para silencia o buzzer por 10min
 void handleButton () {
   int reading = digitalRead(buttonPin);
 
@@ -325,15 +408,18 @@ void handleButton () {
     lastDebounceTime = millis();
   }
 
+  //aguardar tempo para evitar leituras falsas
   if ((millis() - lastDebounceTime) > debounceDelay) {
     if (reading != buttonState) {
       buttonState = reading;
       
+      //se foi pressionado
       if (buttonState == LOW) {
         if (redAlert) {
           buzzerSilenced = true;
           silenceStartTime = millis();
-          digitalWrite(buzzerPin, LOW);
+          //digitalWrite(buzzerPin, LOW);
+          noTone(buzzerPin);
           buzzerOn = false;
         }
       }
@@ -342,17 +428,106 @@ void handleButton () {
   lastButtonState = reading;
 }
 
+//reiniciar todas as variáveis e alertas após 24h
+void resetAccumulatedData () {
+  sumBH = 0.0;
+  sumHum = 0.0;
+  sumTemp = 0.0;
+  counter = 0;
+  
+  onAlertBH = false;
+  onAlertHum = false;
+  onAlertTemp = false;
+  onMaximumAlertBH = false;
+  onMaximumAlertHum = false;
+  onMaximumAlertTemp = false;
+
+  startOutsideRangeBH = 0;
+  startOutsideRangeHum = 0;
+  startOutsideRangeTemp = 0;
+  
+  consecutiveCounterHum = 0;
+  consecutiveCounterTemp = 0;
+
+  luxStats24h.minValue = 9999.0;
+  luxStats24h.maxValue = -9999.0;
+  luxStats24h.avgValue = 0.0;
+  luxStats24h.sumValue = 0.0;
+  luxStats24h.readingCount = 0;
+  
+  tempStats24h.minValue = 9999.0;
+  tempStats24h.maxValue = -9999.0;
+  tempStats24h.avgValue = 0.0;
+  tempStats24h.sumValue = 0.0;
+  tempStats24h.readingCount = 0;
+  
+  humStats24h.minValue = 9999.0;
+  humStats24h.maxValue = -9999.0;
+  humStats24h.avgValue = 0.0;
+  humStats24h.sumValue = 0.0;
+  humStats24h.readingCount = 0;
+}
+
+//atualizar métricas de 24h
+void calculate24hStats (float lux, float hum, float temp) {
+  if (lux < luxStats24h.minValue) luxStats24h.minValue = lux;
+  else if (lux > luxStats24h.maxValue) luxStats24h.maxValue = lux;
+  luxStats24h.sumValue += lux;
+  luxStats24h.readingCount++;
+
+  if (hum < humStats24h.minValue) humStats24h.minValue = hum;
+  else if (hum > humStats24h.maxValue) humStats24h.maxValue = hum;
+  humStats24h.sumValue += sum;
+  humStats24h.readingCount++;
+
+  if (temp < tempStats24h.minValue) tempStats24h.minValue = temp;
+  else if (temp > tempStats24h.maxValue) tempStats24h.maxValue = temp;
+  tempStats24h.sumValue += temp;
+  tempStats24h.readingCount++;
+}
+
+//calcular médias em 24h
+void calculateAverage24h () {
+  if (luxStats24h.readingCount > 0) {
+    luxStats24h.avgValue = luxStats24h.sumValue / luxStats24h.readingCount;
+  }
+  if (humStats24h.readingCount > 0) {
+    humStats24h.avgValue = humStats24h.sumValue / humStats24h.readingCount;
+  }
+  if (tempStats24h.readingCount > 0) {
+    tempStats24h.avgValue = tempStats24h.sumValue / tempStats24h.readingCount;
+  }
+}
+
 void loop() {
+
+  unsigned long currentTime = millis();
+
+  //alterna estado do dia após 12h
+  if (currentTime - counterStateDay >= twelveHours) {
+    stateDay = !stateDay;
+  } 
+
+  //processar métricas entre 24h e resetar
+  if (currentTime - counterStateDay >= twentyFourHours) {
+    calculateAverage24h();
+
+    resetAccumulatedData();
+    counterStateDay = currentTime;
+  }
 
   handleButton();
 
-  if (millis() - lastTime >= readingInterval) {
+  //leitura dos sensores a cada 10s
+  if (currentTime - lastTime >= readingInterval) {
     lastTime += readingInterval; 
     counter++;
 
     float lux = lightMeter.readLightLevel();
     float humidity = dht.readHumidity();
     float temp = dht.readTemperature();
+
+    calculate24hStats(lux, humidity, temp);
 
     sumBH += lux;
     sumHum += humidity;
@@ -371,6 +546,7 @@ void loop() {
     Serial.print(humidity);
     Serial.println(" %");  
 
+    //média em 1min
     if (counter >= 6 ) {
       averageBH = sumBH / 6.0;
       averageHum = sumHum / 6.0;
