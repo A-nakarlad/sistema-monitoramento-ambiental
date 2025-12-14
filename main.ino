@@ -4,6 +4,8 @@
 
 #define DHTPIN 19
 #define DHTTYPE DHT11 
+#define KY037Analog 34
+#define KY037Digital 35
 
 #define readingInterval 10000 //intervalo de leituras dos sensores
 #define alertTime 50000 //tempo máximo para alerta amarelo
@@ -19,6 +21,7 @@
 
 BH1750 lightMeter;
 DHT dht(DHTPIN, DHTTYPE);
+
 
 //pinout 
 const int redLedPin = 15;
@@ -138,12 +141,12 @@ void defineInitialStateDay () {
         Serial.print(averageBH);
         Serial.println(" lx");
 
-        if (averageBH < 1) {
+        if (averageBH < 20) {
           if (stateDay) {
             stateDay = false;
             break;
           } 
-        }else if (averageBH >= 1) {
+        }else if (averageBH >= 20) { //dia é maior que 20???
           if (!stateDay) {
             stateDay = true;
             break;
@@ -159,8 +162,10 @@ void setup() {
   Serial.begin(9600);
 
   Wire.begin();
+
   lightMeter.begin();
   dht.begin();
+  pinMode(pinSensorDigital, INPUT);
 
   defineInitialStateDay();
 
@@ -174,6 +179,8 @@ void setup() {
   sumBH = 0.0;
 
   noTone(buzzerPin);
+
+  Serial.println("tipo,time,sensor,v1,v2,v3");
 }
 
 //verificar se a humidade está dentro da faixa ideal
@@ -289,7 +296,7 @@ void checkTemperature (float temperature) {
   }
 }
 
-//verificar se a humidade está dentro da faixa ideal
+//verificar se a luminosidade está dentro da faixa ideal
 void checkBH (float lux) {
   //se é noite
   if (!stateDay){
@@ -319,8 +326,26 @@ void checkBH (float lux) {
   } 
   //durante o dia
   else {
-    if (onAlertBH) {
-      onAlertBH = false;
+    if (lux < 150 || lux > 300) {
+      //primeira vez fora da faixa
+      if (startOutsideRangeBH == 0) {
+        startOutsideRangeBH = millis();
+      } 
+      //alerta vermelho se passou o tempo máximo
+      else if (onAlertBH && (millis() - startOutsideRangeBH >= maximumAlertTime)) {
+        Serial.println("alerta - mais de 2min");
+        onMaximumAlertBH = true;
+      } 
+      //alerta amarelo
+      else if (millis() - startOutsideRangeBH >= alertTime ) {
+        Serial.println("alerta - mais de 2min");
+        onAlertBH = true;
+      } 
+    }    
+    else {
+      if (onAlertBH) {
+        onAlertBH = false;
+      }
       startOutsideRangeBH = 0;
     }
   } 
@@ -499,6 +524,7 @@ void calculateAverage24h () {
   }
 }
 
+
 void loop() {
 
   unsigned long currentTime = millis();
@@ -511,6 +537,33 @@ void loop() {
   //processar métricas entre 24h e resetar
   if (currentTime - counterStateDay >= twentyFourHours) {
     calculateAverage24h();
+
+    Serial.print("resumo_24h,");
+    Serial.print(currentTime);
+    Serial.print(",BH1750,");
+    Serial.print(luxStats24h.minValue);
+    Serial.print(",");
+    Serial.print(luxStats24h.maxValue);
+    Serial.print(",");
+    Serial.println(luxStats24h.avgValue);
+
+    Serial.print("resumo_24h,");
+    Serial.print(currentTime);
+    Serial.print(",DHT_TEMP,");
+    Serial.print(tempStats24h.minValue);
+    Serial.print(",");
+    Serial.print(tempStats24h.maxValue);
+    Serial.print(",");
+    Serial.println(tempStats24h.avgValue);
+
+    Serial.print("resumo_24h,");
+    Serial.print(currentTime);
+    Serial.print(",DHT_HUM,");
+    Serial.print(humStats24h.minValue);
+    Serial.print(",");
+    Serial.print(humStats24h.maxValue);
+    Serial.print(",");
+    Serial.println(humStats24h.avgValue);
 
     resetAccumulatedData();
     counterStateDay = currentTime;
@@ -537,14 +590,20 @@ void loop() {
     checkHumidity(humidity);
     checkTemperature(temp);
 
-    Serial.print("leitura ");
-    Serial.println(counter);
+    //pra salvar no csv
+    Serial.print("leitura,");
+    Serial.print(currentTime);
+    Serial.print(",BH1750,");
     Serial.print(lux);
-    Serial.println(" lx");
-    Serial.print(temp);
-    Serial.println(" °c");
+    Serial.println(",,");
+
+    Serial.print("leitura,");
+    Serial.print(currentTime);
+    Serial.print(",DHT,");
+    Serial.print(tmp);
+    Serial.println(",");
     Serial.print(humidity);
-    Serial.println(" %");  
+    Serial.println(",");
 
     //média em 1min
     if (counter >= 6 ) {
@@ -557,13 +616,19 @@ void loop() {
       sumHum = 0.0;
       sumTemp = 0.0;
 
-      Serial.println("media em 1min ");
+      Serial.print("media_1min ");
+      Serial.print(currentTime);
+      Serial.print(",BH1750,");
       Serial.print(averageBH);
-      Serial.println(" lx");
-      Serial.print(averageHum);
-      Serial.println(" %");
+      Serial.println(",,");
+
+      Serial.print("media_1min,");
+      Serial.print(currentTime);
+      Serial.print(",DHT,");
       Serial.print(averageTemp);
-      Serial.println(" °c");
+      Serial.print(",");
+      Serial.print(averageHum);
+      Serial.println(",");
     }
 
     activateAlerts();
