@@ -109,7 +109,7 @@ SensorStats soundStats24h = {9999.0, -9999.0, 0.0, 0.0, 0, 0};
 // ============ FUNÇÃO: LER SENSOR DE SOM KY-037 ============
 float readSoundSensor() {
   const int N = 200;
-  int minimo = 1023;
+  int minimo = 4095;
   int maximo = 0;
 
   // Mede pico-a-pico em N amostras
@@ -124,7 +124,7 @@ float readSoundSensor() {
   
   // Converte VPP para score de 0-100
   // VPP típico: 0-1023, mapeamos para 0-100
-  float score = map(vpp, 0, 1023, 0, 100);
+  float score = map(vpp, 0, 4095, 0, 100);
   score = constrain(score, 0, 100);
   
   return score;
