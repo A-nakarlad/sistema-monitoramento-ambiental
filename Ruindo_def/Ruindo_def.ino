@@ -1,6 +1,8 @@
 //============PINS=============
-#define pinSensorAnalogico A4
-#define pinSensorDigital 7
+#define KY037Analog 34
+#define KY037Digital 35
+#define pinSensorAnalogico 34
+#define pinSensorDigital 35
 #define pinLED LED_BUILTIN
 
 //============STRUCTS=============
@@ -35,6 +37,9 @@ LeituraSensorA lerSensorAnalogico(){
   // mede pico-a-pico 
   for (int i = 0; i < N; i++) {
     int val = analogRead(pinSensorAnalogico);
+    Serial.print("val");
+    Serial.print("val");
+
     if (val > maximo) maximo = val;
     if (val < minimo) minimo = val;
   }
