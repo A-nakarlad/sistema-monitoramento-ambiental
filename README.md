@@ -4,13 +4,13 @@
 Este projeto implementa um sistema de monitoramento ambiental completo para biotérios (salas/racks de criação de ratos), garantindo condições ideais para reprodução animal através do monitoramento em tempo real de parâmetros críticos.
 
 ## 🎯 Objetivo
-Desenvolver uma solução MVP (Minimum Viable Product) que monitore continuamente as condições ambientais e alerte quando parâmetros saírem das faixas estabelecidas, conforme especificado no documento de projeto.
+Desenvolver uma solução MVP  que monitore continuamente as condições ambientais e alerte quando parâmetros saírem das faixas estabelecidas, conforme especificado no documento de projeto.
 
 ## 📊 Parâmetros Monitorados
 
 ### 1. Temperatura
 - **Faixa ideal:** 22-26°C
-- **Importante:** Estabilidade (evitar variações rápidas)
+- **Importante:** Estabilidade 
 
 ### 2. Umidade Relativa
 - **Faixa ideal:** 40-60%
@@ -18,7 +18,7 @@ Desenvolver uma solução MVP (Minimum Viable Product) que monitore continuament
 ### 3. Luminosidade (Fotoperíodo)
 - **Ciclo:** 12h claro / 12h escuro
 - **Dia:** 150-300 lux
-- **Noite:** ≈0 lux (evitar vazamento de luz)
+- **Noite:** ≈0 lux 
 
 ### 4. Ruído
 - **Limite:** < 70 dB(A)
