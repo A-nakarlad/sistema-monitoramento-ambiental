@@ -10,7 +10,6 @@ Desenvolver uma solução MVP  que monitore continuamente as condições ambient
 
 ### 1. Temperatura
 - **Faixa ideal:** 22-26°C
-- **Importante:** Estabilidade 
 
 ### 2. Umidade Relativa
 - **Faixa ideal:** 40-60%
@@ -25,6 +24,9 @@ Desenvolver uma solução MVP  que monitore continuamente as condições ambient
 - **Objetivo:** Minimizar picos sonoros
 
 ## ⚙️ Componentes do Sistema
+
+![Foto da montagem do sistema](image/Circuito.jpeg)
+
 
 ### Sensores Utilizados
 1. **BH1750** - Sensor de luminosidade
@@ -49,16 +51,15 @@ Desenvolver uma solução MVP  que monitore continuamente as condições ambient
 - **LED Vermelho + Buzzer:** 
   - Variável crítica fora por >5 minutos
   - Múltiplas variáveis fora da faixa
-  - Qualquer alerta máximo ativado
 
 ### 3. Histerese para Estabilidade
 - Alerta dispara após 3 leituras consecutivas fora da faixa
 - Retorno a "OK" após 3 leituras consecutivas dentro da faixa
 
 ### 4. Estatísticas 24 Horas
-- Registro de mínimo, máximo e médias
-- Cálculo de porcentagem do tempo fora da faixa
-- Exportação automática em formato CSV
+- Registro de mínimo, máximo e médias para cada sensor
+- Cálculo de porcentagem do tempo fora da faixa para cada sensor
+- Captação dos dados na serial e exportação automática em formato CSV
 
 ## 📁 Estrutura de Código
 
@@ -80,8 +81,8 @@ const int buttonPin = 23;
 ### Intervalos de Tempo
 ```cpp
 #define readingInterval 10000        // 10s entre leituras
-#define alertTime 50000              // 50s para alerta amarelo
-#define maximumAlertTime 60000       // 60s para alerta vermelho
+#define alertTime 60000              // 1min para alerta amarelo
+#define maximumAlertTime 300000       // 5min para alerta vermelho
 #define buzzerInterval 30000         // 30s entre toques do buzzer
 #define silenceDuration 600000       // 10min sem buzzer após silenciar
 ```
@@ -118,10 +119,6 @@ resumo_24h,timestamp,SENSOR,min,max,média,%_fora_faixa
 #define soundPeakThreshold 60        // Threshold para picos
 ```
 
-### Critérios de Conformidade
-- Sistema considera "OK" quando ≥85% das leituras de 24h permanecem dentro das faixas
-- Alertas são acionados com base em tempo contínuo fora da faixa
-
 ## 🚀 Instalação e Uso
 
 ### Requisitos
@@ -138,12 +135,5 @@ resumo_24h,timestamp,SENSOR,min,max,média,%_fora_faixa
 2. Inicia monitoramento contínuo
 3. Começa a gerar logs CSV via Serial (9600 baud)
 
-## 📝 Checklist de Aceitação
-
-- [ ] Leituras estáveis de T/UR + Lux + Ruído por 24h
-- [ ] Display apresenta valores atuais e estado
-- [ ] LED/Buzzer disparam conforme regras configuradas
-- [ ] Relato de instalação com fotos e mapa de posição
-- [ ] Exportação de amostras com min/máx/médio e % tempo fora da faixa
 
 ---
