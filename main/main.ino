@@ -16,8 +16,8 @@ const int buttonPin = 23;
 
 // ============ INTERVALOS E TEMPOS ============
 #define readingInterval 10000        // 10s entre leituras
-#define alertTime 50000              // 50s para alerta amarelo (ajustado de 2min)
-#define maximumAlertTime 60000       // 60s para alerta vermelho (ajustado de 3min)
+#define alertTime 60000              // 1min
+#define maximumAlertTime 300000      // 5min
 #define buzzerInterval 30000         // 30s entre toques do buzzer
 #define silenceDuration 600000       // 10min sem buzzer após silenciar
 
@@ -194,7 +194,7 @@ void checkHumidity(float humidity) {
       }
 
       if (consecutiveCounterHum >= 3) {
-        onAlertHum = true;
+        onAlertHum = true; //isso não deveria dar o alerta, mas sim ser mostrado no display. esse alerta é pra acender o led
       }
     } else {
       consecutiveCounterHum = 0;
@@ -204,7 +204,7 @@ void checkHumidity(float humidity) {
     if (withinRange) {
       consecutiveCounterHum++;
       if (consecutiveCounterHum >= 3) {
-        onAlertHum = false;
+        onAlertHum = false;  
         onMaximumAlertHum = false;
         consecutiveCounterHum = 0;
         startOutsideRangeHum = 0;
@@ -232,7 +232,7 @@ void checkTemperature(float temperature) {
       }
 
       if (consecutiveCounterTemp >= 3) {
-        onAlertTemp = true;
+        onAlertTemp = true;   //isso não deveria dar o alerta, mas sim ser mostrado no display. esse alerta é pra acender o led
       }
     } else {
       consecutiveCounterTemp = 0;
@@ -478,6 +478,8 @@ void defineInitialStateDay() {
   unsigned long init_lastTime = millis();
   int init_counter = 0;
 
+  Serial.println("Definindo estado do dia");
+
   // 6 amostras para determinar estado inicial
   while (init_counter < 6) {
     if (millis() - init_lastTime >= readingInterval) {
@@ -490,6 +492,12 @@ void defineInitialStateDay() {
   
   averageBH = sumBH / 6.0;
   stateDay = (averageBH >= 20.0);
+
+  Serial.print("Média inicial ");
+  Serial.println(averageBH);
+
+  Serial.print("Estado do dia inicial ");
+  Serial.println(stateDay);
 
   sumBH = 0.0;
   init_lastTime = millis();
@@ -536,6 +544,13 @@ void setup() {
   pinMode(KY037Digital, INPUT);
 
   defineInitialStateDay();
+
+  Serial.print("Mudança de estado do dia ");
+  Serial.println(averageBH);
+
+  Serial.print("Estado do dia atual ");
+  Serial.println(stateDay);
+
 
   pinMode(redLedPin, OUTPUT);
   pinMode(greenLedPin, OUTPUT);
