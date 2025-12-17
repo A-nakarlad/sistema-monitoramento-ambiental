@@ -1,14 +1,11 @@
 # Monitoramento Ambiental para Biotério
 
-## 📋 Sobre o Projeto
+## Sobre o Projeto
 Projeto desenvolvido na 2º unidade da disciplina de Sistemas Embarcados.
 
-Este projeto implementa um sistema de monitoramento ambiental completo para biotérios (salas/racks de criação de ratos), garantindo condições ideais para reprodução animal através do monitoramento em tempo real de parâmetros críticos.
+Este projeto implementa um sistema de monitoramento ambiental completo para biotérios (salas/racks de criação de ratos), garantindo condições ideais para reprodução animal através do monitoramento em tempo real de parâmetros críticos. 
 
-## 🎯 Objetivo
-Desenvolver uma solução MVP  que monitore continuamente as condições ambientais e alerte quando parâmetros saírem das faixas estabelecidas, conforme especificado no documento de projeto.
-
-## 📊 Parâmetros Monitorados
+## Parâmetros Monitorados
 
 ### 1. Temperatura
 - **Faixa ideal:** 22-26°C
@@ -25,7 +22,7 @@ Desenvolver uma solução MVP  que monitore continuamente as condições ambient
 - **Limite:** < 70 dB(A)
 - **Objetivo:** Minimizar picos sonoros
 
-## ⚙️ Componentes do Sistema
+## Componentes do Sistema
 
 ![Foto da montagem do sistema](image/Circuito.jpeg)
 
@@ -40,7 +37,7 @@ Desenvolver uma solução MVP  que monitore continuamente as condições ambient
 - **Buzzer** para alertas sonoros
 - **Botão** para silenciar temporariamente o buzzer
 
-## 📈 Funcionalidades Principais
+## Funcionalidades Principais
 
 ### 1. Monitoramento Contínuo
 - Leituras a cada 10 segundos
@@ -63,7 +60,7 @@ Desenvolver uma solução MVP  que monitore continuamente as condições ambient
 - Cálculo de porcentagem do tempo fora da faixa para cada sensor
 - Captação dos dados na serial e exportação automática em formato CSV
 
-## 📁 Estrutura de Código
+## Estrutura de Código
 
 ### Pinagem
 ```cpp
@@ -89,7 +86,7 @@ const int buttonPin = 23;
 #define silenceDuration 600000       // 10min sem buzzer após silenciar
 ```
 
-## 📊 Saída de Dados
+## Saída de Dados
 
 ### Formato CSV
 O sistema gera três tipos de registros CSV:
@@ -109,7 +106,7 @@ media_1min,timestamp,SENSOR,valor_médio,,
 resumo_24h,timestamp,SENSOR,min,max,média,%_fora_faixa
 ```
 
-## 🔧 Configuração
+## Configuração
 
 ### Limiares Configuráveis
 ```cpp
@@ -121,7 +118,7 @@ resumo_24h,timestamp,SENSOR,min,max,média,%_fora_faixa
 #define soundPeakThreshold 60        // Threshold para picos
 ```
 
-## 🚀 Instalação e Uso
+## Instalação e Uso
 
 ### Requisitos
 - Placa Arduino/ESP32 com suporte às bibliotecas
