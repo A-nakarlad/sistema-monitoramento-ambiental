@@ -1,6 +1,7 @@
 # Monitoramento Ambiental para Biotério
 
 ## 📋 Sobre o Projeto
+Projeto desenvolvido na 2º unidade da disciplina de Sistemas Embarcados.
 Este projeto implementa um sistema de monitoramento ambiental completo para biotérios (salas/racks de criação de ratos), garantindo condições ideais para reprodução animal através do monitoramento em tempo real de parâmetros críticos.
 
 ## 🎯 Objetivo
